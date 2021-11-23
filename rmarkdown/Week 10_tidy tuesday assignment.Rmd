@@ -1,0 +1,117 @@
+---
+title: "Tidy Tuesday Assignment - Week10"
+author: "Derek Leask"
+date: "11/23/2021"
+output: 
+  html_document:
+    number_sections: true
+    keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Loading the packages used
+
+##trying out the tmap package for the first time
+```{r}
+library(tidyverse)
+library(janitor)
+library(here)
+library(viridis)
+library(lubridate)
+library(tidytuesdayR)
+
+library(tmap)
+library(sf)
+library(spData)
+library(magick)
+library(gifski)
+
+```
+
+
+# Loading the data directly from the tidy tuedsay directory
+```{r}
+
+tuesdata <- tidytuesdayR::tt_load(2020, week = 36)
+
+key_crop_yields <- tuesdata$key_crop_yields%>%
+  clean_names()
+
+```
+
+# Pivoting the data to a long table format and changed the "code" column to "iso_a3" to match with the world data for joining
+
+```{r}
+long_crops <- key_crop_yields %>% 
+  pivot_longer(cols = 4:last_col(),
+               names_to = "crop", 
+               values_to = "crop_production") %>% 
+  mutate(crop = str_remove_all(crop, " \\(tonnes per hectare\\)")) %>% 
+  set_names(nm = names(.) %>% tolower())
+  
+long_crops<-mutate(long_crops, iso_a3=code)
+
+
+long_crops
+```
+
+# Ran this code to tell the package i want to plot the GIF and not just to view it
+```{r}
+tmap_mode("plot")
+data(World)
+```
+# Merged the crop data to the world data i got from the tmap package and converted it into sf format
+```{r}
+map <- merge(long_crops, World[, c(5, 1)], by = "iso_a3", all.y = TRUE)
+
+map <- st_as_sf(map)
+```
+
+
+
+
+# Tried to make a facet map, but there were too many years and countries for the facet to be legible, so opted for the animation
+
+```{r}
+tm_shape(map) +
+  tm_polygons(
+    col = "crop_production",
+    style = "cont",
+    pal = viridis(10, direction = -1),
+    title = "Crop Production"
+    ) +
+  tm_facets(by = "year", ncol = 4) +
+  tm_layout(legend.outside.size = 0.2)
+```
+
+# ran the this code to get the style guides and color pallates for tmap, which downloads .jpegs of the color pallets and saves them in the project directory
+```{r}
+#tmap_style_catalogue(path = "./tmap_style_previews", styles = NA)
+
+#tmap_style_catalog(path = "./tmap_style_previews", styles = NA)
+```
+
+# ran the animation, but tmap isn't as intuitive as the ggplot package.  Had issues with adjusting the titles and legends, but was able to export as a gif!
+
+
+```{r}
+animation <- tm_shape(map)+
+  tm_polygons(
+     col = "crop_production",
+      style = "cont",
+     pal = viridis(10, direction = -1)) +
+  tm_facets(along = "year") +
+  tm_layout(legend.position = c("left", "bottom"))
+  
+  tmap_animation(
+    animation, filename = "map.gif",
+    delay = 75, width = 1200, height = 600, 
+    )
+```
+
+
+
+
+
